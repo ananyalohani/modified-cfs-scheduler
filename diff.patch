@@ -1,0 +1,139 @@
+diff --color -bur linux-5.9.1/arch/x86/entry/syscalls/syscall_64.tbl my-linux-5.9.1/arch/x86/entry/syscalls/syscall_64.tbl
+--- linux-5.9.1/arch/x86/entry/syscalls/syscall_64.tbl	2020-11-10 16:02:24.187493757 +0000
++++ my-linux-5.9.1/arch/x86/entry/syscalls/syscall_64.tbl	2020-11-08 12:22:47.773043223 +0000
+@@ -362,6 +362,7 @@
+ 438	common	pidfd_getfd		sys_pidfd_getfd
+ 439	common	faccessat2		sys_faccessat2
+ 440	common	sh_task_info		sys_sh_task_info
++441	common	rt_nice			sys_rt_nice
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --color -bur linux-5.9.1/include/linux/sched.h my-linux-5.9.1/include/linux/sched.h
+--- linux-5.9.1/include/linux/sched.h	2020-10-17 06:31:22.000000000 +0000
++++ my-linux-5.9.1/include/linux/sched.h	2020-11-08 12:19:45.260432100 +0000
+@@ -458,6 +458,7 @@
+ 	u64				sum_exec_runtime;
+ 	u64				vruntime;
+ 	u64				prev_sum_exec_runtime;
++	u64				rt_nice;
+ 
+ 	u64				nr_migrations;
+ 
+diff --color -bur linux-5.9.1/kernel/sched/core.c my-linux-5.9.1/kernel/sched/core.c
+--- linux-5.9.1/kernel/sched/core.c	2020-10-17 06:31:22.000000000 +0000
++++ my-linux-5.9.1/kernel/sched/core.c	2020-11-08 12:19:52.888465343 +0000
+@@ -3070,6 +3070,7 @@
+ 	p->se.prev_sum_exec_runtime	= 0;
+ 	p->se.nr_migrations		= 0;
+ 	p->se.vruntime			= 0;
++	p->se.rt_nice			= 0;
+ 	INIT_LIST_HEAD(&p->se.group_node);
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fair.c
+--- linux-5.9.1/kernel/sched/fair.c	2020-10-17 06:31:22.000000000 +0000
++++ my-linux-5.9.1/kernel/sched/fair.c	2020-11-10 12:48:36.411740393 +0000
+@@ -534,6 +534,18 @@
+ static inline int entity_before(struct sched_entity *a,
+ 				struct sched_entity *b)
+ {
++	if(a->rt_nice > 0 && b->rt_nice > 0) 
++	{
++		return (s64)(a->rt_nice - b->rt_nice) < 0;
++	} 
++	else if(a->rt_nice > 0)
++	{
++		return 1;
++	}
++	else if(b->rt_nice > 0) 
++	{
++		return 0;
++	}
+ 	return (s64)(a->vruntime - b->vruntime) < 0;
+ }
+ 
+@@ -621,6 +633,34 @@
+ {
+ 	struct rb_node *next = rb_next(&se->run_node);
+ 
++	unsigned long long int min_rt_nice = 0;
++	struct task_struct *task;
++	struct sched_entity *run_se;
++	int flag = 0;
++	for_each_process(task)
++	{
++		struct sched_entity *cur_se = &(task->se);
++		unsigned long long int cur_rt_nice = cur_se->rt_nice;
++		if(cur_se->on_rq == 1 && cur_rt_nice > 0)
++		{
++			if(flag == 0)
++			{
++				flag++;
++				run_se = cur_se;
++				min_rt_nice = cur_rt_nice;
++			}
++
++			if(cur_rt_nice < min_rt_nice)
++			{
++				run_se = cur_se;
++				min_rt_nice = cur_rt_nice;
++			}
++		}
++	}
++
++	if(flag)
++		return run_se;
++
+ 	if (!next)
+ 		return NULL;
+ 
+@@ -860,6 +900,11 @@
+ 	curr->sum_exec_runtime += delta_exec;
+ 	schedstat_add(cfs_rq->exec_clock, delta_exec);
+ 
++	if(curr->rt_nice > 0)
++	{
++		curr->rt_nice -= delta_exec;
++		if(curr->rt_nice < 0)	curr->rt_nice = 0;
++	}
+ 	curr->vruntime += calc_delta_fair(delta_exec, curr);
+ 	update_min_vruntime(cfs_rq);
+ 
+diff --color -bur linux-5.9.1/kernel/sys.c my-linux-5.9.1/kernel/sys.c
+--- linux-5.9.1/kernel/sys.c	2020-11-10 16:03:53.335641964 +0000
++++ my-linux-5.9.1/kernel/sys.c	2020-11-10 09:41:55.547440539 +0000
+@@ -2777,3 +2777,31 @@
+ 
+   	return 0;
+ }
+\ No newline at end of file
++
++SYSCALL_DEFINE2(rt_nice, long, pid, long, rt_nice)
++{
++    if(pid < 1 || pid > 2147483647)
++	{
++		printk(KERN_ALERT "Invalid value of PID.\n");
++		return -EINVAL;			// invalid argument
++	}
++
++    if(rt_nice < 0)
++    {
++        printk(KERN_ALERT "Invalid value of rt_nice. Provide a non-negative value.\n");
++		return -EINVAL;			// invalid argument
++    }
++
++    unsigned long long int val = (unsigned long long int)rt_nice * 1000000000;
++    struct task_struct *task = pid_task(find_vpid(pid), PIDTYPE_PID);
++
++    if(task == NULL) 
++    {
++        printk(KERN_ALERT "No such task with PID = %ld\n.", pid);
++		return -ESRCH;			// no such process
++    }
++    struct sched_entity *task_se = &(task->se);
++    task_se->rt_nice = val;
++    printk(KERN_INFO "rt_nice value modified successfully.\n");
++    return 0;
++}
+\ No newline at end of file
