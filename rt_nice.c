@@ -6,6 +6,12 @@ SYSCALL_DEFINE2(rt_nice, long, pid, long, rt_nice)
 		return -EINVAL;			// invalid argument
 	}
 
+    if(rt_nice < 0)
+    {
+        printk(KERN_ALERT "Invalid value of rt_nice. Provide a non-negative value.\n");
+		return -EINVAL;			// invalid argument
+    }
+
     unsigned long long int val = (unsigned long long int)rt_nice * 1000000000;
     struct task_struct *task = pid_task(find_vpid(pid), PIDTYPE_PID);
 
