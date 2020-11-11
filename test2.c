@@ -13,7 +13,7 @@
 
 long long int loop()
 {
-	long long int n = 30000000;
+	long long int n = 2000000000;
 	long long int sum = 0;
 	for(int i = 0; i < n; i++)
 	{
