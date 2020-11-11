@@ -18,7 +18,14 @@ int main(int argc, char **argv)
         srt = 0;
     else
         srt = atoi(argv[1]);
-    syscall(RT_NICE, (long)getpid(), srt);
+
+    int res = syscall(RT_NICE, (long)getpid(), srt);
+    if(res != 0)
+    {
+        perror("Error");
+        return -1;
+    }
+
     long long int sum = 0;
     for(long i = 0; i < 2000000000; i++)
     {
