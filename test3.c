@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	pid_t pid;
 	int srt;
 
-	printf("Time taken without soft realtime guarantees:\n");
+	printf("Time taken with rt_nice = 0:\n");
 	for(int i = 0; i < 5; i++)
 	{
 		pid = fork();
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 		wait(NULL);
 	}
 
-	printf("Time taken with soft realtime guarantees:\n");
+	printf("Time taken with rt_nice > 0:\n");
 	for(int i = 0; i < 5; i++)
 	{
 		pid = fork();
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
 			int sum = loop();
 			time = omp_get_wtime() - start_time;
-			printf("Process %d: %f sec\n", i + 1, time);
+			printf("Process %d: %f seconds\n", i + 1, time);
 			exit(0);
 		}
 	}
