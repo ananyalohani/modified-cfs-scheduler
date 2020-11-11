@@ -33,14 +33,14 @@ diff --color -bur linux-5.9.1/kernel/sched/core.c my-linux-5.9.1/kernel/sched/co
  #ifdef CONFIG_FAIR_GROUP_SCHED
 diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fair.c
 --- linux-5.9.1/kernel/sched/fair.c	2020-10-17 06:31:22.000000000 +0000
-+++ my-linux-5.9.1/kernel/sched/fair.c	2020-11-10 12:48:36.411740393 +0000
++++ my-linux-5.9.1/kernel/sched/fair.c	2020-11-11 19:19:32.912987534 +0000
 @@ -534,6 +534,18 @@
  static inline int entity_before(struct sched_entity *a,
  				struct sched_entity *b)
  {
 +	if(a->rt_nice > 0 && b->rt_nice > 0) 
 +	{
-+		return (s64)(a->rt_nice - b->rt_nice) < 0;
++		return (s64)(a->rt_nice - b->rt_nice) > 0;
 +	} 
 +	else if(a->rt_nice > 0)
 +	{
@@ -57,7 +57,7 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
  {
  	struct rb_node *next = rb_next(&se->run_node);
  
-+	unsigned long long int min_rt_nice = 0;
++	unsigned long long int max_rt_nice = 0;
 +	struct task_struct *task;
 +	struct sched_entity *run_se;
 +	int flag = 0;
@@ -71,13 +71,13 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
 +			{
 +				flag++;
 +				run_se = cur_se;
-+				min_rt_nice = cur_rt_nice;
++				max_rt_nice = cur_rt_nice;
 +			}
 +
-+			if(cur_rt_nice < min_rt_nice)
++			if(cur_rt_nice > max_rt_nice)
 +			{
 +				run_se = cur_se;
-+				min_rt_nice = cur_rt_nice;
++				max_rt_nice = cur_rt_nice;
 +			}
 +		}
 +	}
@@ -102,8 +102,8 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
  
 diff --color -bur linux-5.9.1/kernel/sys.c my-linux-5.9.1/kernel/sys.c
 --- linux-5.9.1/kernel/sys.c	2020-11-10 16:03:53.335641964 +0000
-+++ my-linux-5.9.1/kernel/sys.c	2020-11-10 17:43:16.414783219 +0000
-@@ -2777,3 +2777,33 @@
++++ my-linux-5.9.1/kernel/sys.c	2020-11-10 17:58:25.400594795 +0000
+@@ -2777,3 +2777,31 @@
  
    	return 0;
  }
@@ -114,14 +114,14 @@ diff --color -bur linux-5.9.1/kernel/sys.c my-linux-5.9.1/kernel/sys.c
 +    if(rt_nice < 0)
 +    {
 +        printk(KERN_ALERT "Invalid value of rt_nice. Provide a non-negative value.\n");
-+		 return -EINVAL;			// invalid argument
++		return -EINVAL;			// invalid argument
 +    }
 +
 +    if(pid < 1 || pid > 2147483647)
-+	 {
-+		 printk(KERN_ALERT "Invalid value of PID.\n");
-+		 return -EINVAL;			// invalid argument
-+	 }
++	{
++		printk(KERN_ALERT "Invalid value of PID.\n");
++		return -EINVAL;			// invalid argument
++	}
 +
 +    unsigned long long int val = (unsigned long long int)rt_nice * 1000000000;
 +    struct task_struct *task = pid_task(find_vpid(pid), PIDTYPE_PID);

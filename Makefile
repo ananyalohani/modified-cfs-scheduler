@@ -10,6 +10,8 @@ compile2:
 run2: compile2
 	./test2
 
-runtest:
-	gcc mytest.c -lgomp -o mytest
-	./mytest
+compile3:
+	gcc test3.c -lgomp -o test3
+
+run3: compile3
+	./test3
