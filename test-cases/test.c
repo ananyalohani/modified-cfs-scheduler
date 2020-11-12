@@ -34,6 +34,11 @@ int main(int argc, char **argv)
 			printf("Process %d, PID: %ld, Time: %fs\n", i + 1, (long)getpid(), time);
 			exit(0);
 		}
+		else if(pid < 0)
+		{
+			printf("Error in fork.\n");
+			exit(1);
+		}
 	}
 
 	for(int i = 0; i < 5; i++)
@@ -51,12 +56,17 @@ int main(int argc, char **argv)
 			srt = 10 * (i + 1);
 
 			int res = rt_nice(getpid(), srt);
-    		if(res != 0) return -1;
+			if(res != 0) exit(1);
 
 			int sum = loop();
 			time = omp_get_wtime() - start_time;
 			printf("Process %d, PID: %ld, rt_nice: %d, Time: %fs\n", i + 1, (long)getpid(), srt, time);
 			exit(0);
+		}
+		else if(pid < 0)
+		{
+			printf("Error in fork.\n");
+			exit(1);
 		}
 	}
 
