@@ -33,7 +33,7 @@ diff --color -bur linux-5.9.1/kernel/sched/core.c my-linux-5.9.1/kernel/sched/co
  #ifdef CONFIG_FAIR_GROUP_SCHED
 diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fair.c
 --- linux-5.9.1/kernel/sched/fair.c	2020-10-17 06:31:22.000000000 +0000
-+++ my-linux-5.9.1/kernel/sched/fair.c	2020-11-11 19:19:32.912987534 +0000
++++ my-linux-5.9.1/kernel/sched/fair.c	2020-11-12 07:06:18.515778663 +0000
 @@ -534,6 +534,18 @@
  static inline int entity_before(struct sched_entity *a,
  				struct sched_entity *b)
@@ -53,7 +53,7 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
  	return (s64)(a->vruntime - b->vruntime) < 0;
  }
  
-@@ -621,6 +633,34 @@
+@@ -621,6 +633,25 @@
  {
  	struct rb_node *next = rb_next(&se->run_node);
  
@@ -65,20 +65,11 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
 +	{
 +		struct sched_entity *cur_se = &(task->se);
 +		unsigned long long int cur_rt_nice = cur_se->rt_nice;
-+		if(cur_se->on_rq == 1 && cur_rt_nice > 0)
++		if(cur_se->on_rq == 1 && cur_rt_nice > max_rt_nice)
 +		{
-+			if(flag == 0)
-+			{
-+				flag++;
-+				run_se = cur_se;
-+				max_rt_nice = cur_rt_nice;
-+			}
-+
-+			if(cur_rt_nice > max_rt_nice)
-+			{
-+				run_se = cur_se;
-+				max_rt_nice = cur_rt_nice;
-+			}
++			flag = 1;
++			run_se = cur_se;
++			max_rt_nice = cur_rt_nice;
 +		}
 +	}
 +
@@ -88,7 +79,7 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
  	if (!next)
  		return NULL;
  
-@@ -860,6 +900,11 @@
+@@ -860,6 +891,11 @@
  	curr->sum_exec_runtime += delta_exec;
  	schedstat_add(cfs_rq->exec_clock, delta_exec);
  
@@ -102,7 +93,7 @@ diff --color -bur linux-5.9.1/kernel/sched/fair.c my-linux-5.9.1/kernel/sched/fa
  
 diff --color -bur linux-5.9.1/kernel/sys.c my-linux-5.9.1/kernel/sys.c
 --- linux-5.9.1/kernel/sys.c	2020-11-10 16:03:53.335641964 +0000
-+++ my-linux-5.9.1/kernel/sys.c	2020-11-10 17:58:25.400594795 +0000
++++ my-linux-5.9.1/kernel/sys.c	2020-11-12 07:15:07.092851135 +0000
 @@ -2777,3 +2777,31 @@
  
    	return 0;
@@ -118,10 +109,10 @@ diff --color -bur linux-5.9.1/kernel/sys.c my-linux-5.9.1/kernel/sys.c
 +    }
 +
 +    if(pid < 1 || pid > 2147483647)
-+	{
++    {
 +		printk(KERN_ALERT "Invalid value of PID.\n");
 +		return -EINVAL;			// invalid argument
-+	}
++    }
 +
 +    unsigned long long int val = (unsigned long long int)rt_nice * 1000000000;
 +    struct task_struct *task = pid_task(find_vpid(pid), PIDTYPE_PID);
